@@ -312,28 +312,69 @@ function getBestThirdsRaw() {
     return thirds;
 }
 
+// ==================== ПОПРАВЕН getBestThirds() ====================
 function getBestThirds() {
     let thirds = getBestThirdsRaw();
     let selected = state.selectedThirds || [];
-    if (selected.length > 0) {
-        let selectedThirds = [];
-        let remaining = [];
-        thirds.forEach(t => {
-            if (selected.includes(t.group)) {
-                selectedThirds.push(t);
+    
+    if (selected.length > 0 && thirds.length === 12) {
+        // Намираме отборите с еднакви показатели
+        let tiedGroups = {};
+        for (let t of thirds) {
+            let key = `${t.pts}_${t.gd}_${t.gf}`;
+            if (!tiedGroups[key]) tiedGroups[key] = [];
+            tiedGroups[key].push(t);
+        }
+        
+        let selectedInTie = [];
+        let notSelected = [];
+        
+        for (let key in tiedGroups) {
+            let group = tiedGroups[key];
+            if (group.length > 1) {
+                // Има равни показатели
+                let selectedFromGroup = [];
+                let notSelectedFromGroup = [];
+                for (let t of group) {
+                    if (selected.includes(t.group)) {
+                        selectedFromGroup.push(t);
+                    } else {
+                        notSelectedFromGroup.push(t);
+                    }
+                }
+                // Избраните остават в реда на избор
+                for (let g of selected) {
+                    let found = group.find(t => t.group === g);
+                    if (found) selectedInTie.push(found);
+                }
+                // Неизбраните остават по критерии
+                notSelectedFromGroup.sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+                notSelected.push(...notSelectedFromGroup);
             } else {
-                remaining.push(t);
+                notSelected.push(group[0]);
             }
-        });
-        let sortedSelected = [];
-        selected.forEach(group => {
-            let found = thirds.find(t => t.group === group);
-            if (found) sortedSelected.push(found);
-        });
+        }
+        
+        let finalResult = [];
+        let usedGroups = new Set();
+        
+        // Първо избраните отбори (в реда на избор)
+        for (let g of selected) {
+            let found = thirds.find(t => t.group === g);
+            if (found) {
+                finalResult.push(found);
+                usedGroups.add(g);
+            }
+        }
+        
+        // След това останалите, подредени по критерии
+        let remaining = thirds.filter(t => !usedGroups.has(t.group));
         remaining.sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-        let result = [...sortedSelected, ...remaining];
-        return result.slice(0, 8);
+        finalResult.push(...remaining);
+        
+        return finalResult.slice(0, 8);
     }
+    
     return thirds.slice(0, 8);
 }
 
@@ -462,12 +503,10 @@ function calcPoints(pred, real, mult, isElim){
     if(ph===rh && pa===ra) pts=3*mult;
     else if((ph-pa)===(rh-ra)) pts=2*mult;
     else if((ph>pa && rh>ra) || (ph<pa && rh<ra)) pts=1*mult;
-    // Точки за продължения
     if(isElim && pred.exH !== undefined && real.exH !== undefined && pred.exA !== undefined && real.exA !== undefined) {
         let peH=parseInt(pred.exH), peA=parseInt(pred.exA), reH=parseInt(real.exH), reA=parseInt(real.exA);
         if(!isNaN(peH) && !isNaN(peA) && !isNaN(reH) && !isNaN(reA) && peH===reH && peA===reA) pts+=2*mult;
     }
-    // Точки за дузпи
     if(isElim && pred.penH !== undefined && real.penH !== undefined && pred.penA !== undefined && real.penA !== undefined) {
         let ppH=parseInt(pred.penH), ppA=parseInt(pred.penA), rpH=parseInt(real.penH), rpA=parseInt(real.penA);
         if(!isNaN(ppH) && !isNaN(ppA) && !isNaN(rpH) && !isNaN(rpA) && ppH===rpH && ppA===rpA) pts+=1*mult;
@@ -522,7 +561,6 @@ function loadFromStorage() {
             if(loaded.version && loaded.version === 37) state = loaded;
         } catch(e) {}
     }
-    // Конвертиране на results от масив в обект
     if (state.results && Array.isArray(state.results)) {
         let newResults = {};
         state.results.forEach((r, index) => {
@@ -532,7 +570,6 @@ function loadFromStorage() {
         });
         state.results = newResults;
     }
-    // Конвертиране на predictions
     if (state.predictions) {
         for (let player in state.predictions) {
             if (Array.isArray(state.predictions[player])) {
@@ -835,40 +872,7 @@ function toggleThirdSelection(group) {
     renderThirdsSelection(); renderEliminations(); renderPhaseButtons(); renderPredictions();
 }
 
-// ==================== ЕЛИМИНАЦИИ - RENDER И SAVE ====================
-function checkElimTie(matchId) {
-    let h = parseInt(document.getElementById(`elim_h_${matchId}`)?.value);
-    let a = parseInt(document.getElementById(`elim_a_${matchId}`)?.value);
-    let extraDiv = document.getElementById(`elimextra_${matchId}`);
-    let penDiv = document.getElementById(`elimpen_${matchId}`);
-    
-    if (!isNaN(h) && !isNaN(a) && h === a) {
-        extraDiv.style.display = 'flex';
-        let exH = parseInt(document.getElementById(`elim_exH_${matchId}`)?.value);
-        let exA = parseInt(document.getElementById(`elim_exA_${matchId}`)?.value);
-        if (!isNaN(exH) && !isNaN(exA) && exH === exA) {
-            penDiv.style.display = 'flex';
-        } else {
-            penDiv.style.display = 'none';
-        }
-    } else {
-        extraDiv.style.display = 'none';
-        penDiv.style.display = 'none';
-    }
-}
-
-function checkElimExtraTie(matchId) {
-    let exH = parseInt(document.getElementById(`elim_exH_${matchId}`)?.value);
-    let exA = parseInt(document.getElementById(`elim_exA_${matchId}`)?.value);
-    let penDiv = document.getElementById(`elimpen_${matchId}`);
-    
-    if (!isNaN(exH) && !isNaN(exA) && exH === exA) {
-        penDiv.style.display = 'flex';
-    } else {
-        penDiv.style.display = 'none';
-    }
-}
-
+// ==================== ЕЛИМИНАЦИИ ====================
 function renderEliminations() {
     let all = getEliminationMatches();
     if (all.length === 0) {
@@ -934,6 +938,39 @@ function renderEliminations() {
     document.getElementById('elim-brackets').innerHTML = html;
 }
 
+function checkElimTie(matchId) {
+    let h = parseInt(document.getElementById(`elim_h_${matchId}`)?.value);
+    let a = parseInt(document.getElementById(`elim_a_${matchId}`)?.value);
+    let extraDiv = document.getElementById(`elimextra_${matchId}`);
+    let penDiv = document.getElementById(`elimpen_${matchId}`);
+    
+    if (!isNaN(h) && !isNaN(a) && h === a) {
+        if (extraDiv) extraDiv.style.display = 'flex';
+        let exH = parseInt(document.getElementById(`elim_exH_${matchId}`)?.value);
+        let exA = parseInt(document.getElementById(`elim_exA_${matchId}`)?.value);
+        if (!isNaN(exH) && !isNaN(exA) && exH === exA) {
+            if (penDiv) penDiv.style.display = 'flex';
+        } else {
+            if (penDiv) penDiv.style.display = 'none';
+        }
+    } else {
+        if (extraDiv) extraDiv.style.display = 'none';
+        if (penDiv) penDiv.style.display = 'none';
+    }
+}
+
+function checkElimExtraTie(matchId) {
+    let exH = parseInt(document.getElementById(`elim_exH_${matchId}`)?.value);
+    let exA = parseInt(document.getElementById(`elim_exA_${matchId}`)?.value);
+    let penDiv = document.getElementById(`elimpen_${matchId}`);
+    
+    if (!isNaN(exH) && !isNaN(exA) && exH === exA) {
+        if (penDiv) penDiv.style.display = 'flex';
+    } else {
+        if (penDiv) penDiv.style.display = 'none';
+    }
+}
+
 function saveElimResults() {
     let all = getEliminationMatches();
     let hasError = false;
@@ -952,12 +989,10 @@ function saveElimResults() {
         if (!isNaN(h) && !isNaN(a) && h >= 0 && a >= 0) {
             let obj = {h: h, a: a};
             
-            // Ако има равенство в редовното време
             if (h === a) {
                 if (!isNaN(exH) && !isNaN(exA) && exH >= 0 && exA >= 0) {
                     obj.exH = exH;
                     obj.exA = exA;
-                    // Ако има равенство и в продълженията
                     if (exH === exA) {
                         if (!isNaN(penH) && !isNaN(penA) && penH >= 0 && penA >= 0) {
                             obj.penH = penH;
@@ -996,6 +1031,40 @@ function renderPhaseButtons() {
     container.innerHTML=phases.map(p=>`<button class="phase-btn ${state.predictPhase===p.id?'active':''}" onclick="setPredictPhase('${p.id}')">${p.name} ${p.mult>1?`(×${p.mult})`:''}</button>`).join('');
 }
 function setPredictPhase(phase) { state.predictPhase=phase; renderPhaseButtons(); renderPredictions(); }
+
+// ==================== ПРОГНОЗИ С ПОЕТАПЕН ИЗГЛЕД ====================
+function checkPredTie(matchId) {
+    let h = parseInt(document.getElementById(`ph_${matchId}`)?.value);
+    let a = parseInt(document.getElementById(`pa_${matchId}`)?.value);
+    let extraDiv = document.getElementById(`predextra_${matchId}`);
+    let penDiv = document.getElementById(`predpen_${matchId}`);
+    
+    if (!isNaN(h) && !isNaN(a) && h === a) {
+        if (extraDiv) extraDiv.style.display = 'flex';
+        let exH = parseInt(document.getElementById(`pexH_${matchId}`)?.value);
+        let exA = parseInt(document.getElementById(`pexA_${matchId}`)?.value);
+        if (!isNaN(exH) && !isNaN(exA) && exH === exA) {
+            if (penDiv) penDiv.style.display = 'flex';
+        } else {
+            if (penDiv) penDiv.style.display = 'none';
+        }
+    } else {
+        if (extraDiv) extraDiv.style.display = 'none';
+        if (penDiv) penDiv.style.display = 'none';
+    }
+}
+
+function checkPredExtraTie(matchId) {
+    let exH = parseInt(document.getElementById(`pexH_${matchId}`)?.value);
+    let exA = parseInt(document.getElementById(`pexA_${matchId}`)?.value);
+    let penDiv = document.getElementById(`predpen_${matchId}`);
+    
+    if (!isNaN(exH) && !isNaN(exA) && exH === exA) {
+        if (penDiv) penDiv.style.display = 'flex';
+    } else {
+        if (penDiv) penDiv.style.display = 'none';
+    }
+}
 
 function renderPredictions() {
     if (!state.players.length) {
@@ -1058,7 +1127,6 @@ function renderPredictions() {
                     else if ((ph > pa && rh > ra) || (ph < pa && rh < ra)) points = 1 * mult;
                     else points = 0;
                 } else {
-                    // Проверка за продължения
                     if (r.exH !== undefined && r.exH !== '' && r.exA !== undefined && r.exA !== '') {
                         let totalRH = rh + parseInt(r.exH);
                         let totalRA = ra + parseInt(r.exA);
@@ -1070,14 +1138,12 @@ function renderPredictions() {
                         else if ((totalPH > totalPA && totalRH > totalRA) || (totalPH < totalPA && totalRH < totalRA)) points = 1 * mult;
                         else points = 0;
                         
-                        // Бонус за продължения
                         if (p.exH !== undefined && r.exH !== undefined && p.exA !== undefined && r.exA !== undefined) {
                             let peH = parseInt(p.exH), peA = parseInt(p.exA), reH = parseInt(r.exH), reA = parseInt(r.exA);
                             if (!isNaN(peH) && !isNaN(peA) && !isNaN(reH) && !isNaN(reA) && peH === reH && peA === reA) {
                                 points += 2 * mult;
                             }
                         }
-                        // Бонус за дузпи
                         if (r.penH !== undefined && r.penH !== '' && r.penA !== undefined && r.penA !== '') {
                             if (p.penH !== undefined && p.penA !== undefined) {
                                 let ppH = parseInt(p.penH), ppA = parseInt(p.penA), rpH = parseInt(r.penH), rpA = parseInt(r.penA);
@@ -1125,29 +1191,39 @@ function renderPredictions() {
             resultText = 'Чака резултат';
         }
         
+        let showExtra = (p.h !== undefined && p.h !== '' && p.a !== undefined && p.a !== '' && parseInt(p.h) === parseInt(p.a));
+        let showPen = showExtra && (p.exH !== undefined && p.exH !== '' && p.exA !== undefined && p.exA !== '' && parseInt(p.exH) === parseInt(p.exA));
+        
         let htmlContent = `
             <div class="match" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; background:${bgColor}; padding:8px 15px; border-radius:6px; margin-bottom:4px; transition:0.3s;">
-                <span style="width:120px; text-align:right; font-weight:500;">${m.home}</span>
-                <div style="display:flex; align-items:center; gap:5px;">
-                    <input type="number" id="ph_${m.id}" value="${p.h ?? ''}" style="width:50px; text-align:center; border:1px solid #ccc; border-radius:6px; padding:4px;" min="0">
-                    <span style="font-weight:bold;">:</span>
-                    <input type="number" id="pa_${m.id}" value="${p.a ?? ''}" style="width:50px; text-align:center; border:1px solid #ccc; border-radius:6px; padding:4px;" min="0">
+                <span style="width:100px; text-align:right; font-weight:500;">${m.home}</span>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <input type="number" id="ph_${m.id}" value="${p.h ?? ''}" style="width:45px; text-align:center; border:1px solid #ccc; border-radius:6px; padding:4px;" min="0" onchange="checkPredTie('${m.id}')" oninput="checkPredTie('${m.id}')">
+                        <span style="font-weight:bold;">:</span>
+                        <input type="number" id="pa_${m.id}" value="${p.a ?? ''}" style="width:45px; text-align:center; border:1px solid #ccc; border-radius:6px; padding:4px;" min="0" onchange="checkPredTie('${m.id}')" oninput="checkPredTie('${m.id}')">
+                        <span style="font-size:10px; color:#888; margin-left:5px;">90'</span>
+                    </div>
+                    ${isElim ? `
+                        <div id="predextra_${m.id}" style="display:${showExtra ? 'flex' : 'none'}; align-items:center; gap:5px; margin-top:2px;">
+                            <input type="number" id="pexH_${m.id}" value="${p.exH ?? ''}" style="width:35px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0" onchange="checkPredExtraTie('${m.id}')" oninput="checkPredExtraTie('${m.id}')">
+                            <span style="font-weight:bold;">:</span>
+                            <input type="number" id="pexA_${m.id}" value="${p.exA ?? ''}" style="width:35px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0" onchange="checkPredExtraTie('${m.id}')" oninput="checkPredExtraTie('${m.id}')">
+                            <span style="font-size:10px; color:#888;">прод.</span>
+                        </div>
+                        <div id="predpen_${m.id}" style="display:${showPen ? 'flex' : 'none'}; align-items:center; gap:5px; margin-top:2px;">
+                            <input type="number" id="ppenH_${m.id}" value="${p.penH ?? ''}" style="width:30px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0">
+                            <span style="font-weight:bold;">:</span>
+                            <input type="number" id="ppenA_${m.id}" value="${p.penA ?? ''}" style="width:30px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0">
+                            <span style="font-size:10px; color:#888;">дузпи</span>
+                        </div>
+                    ` : ''}
                 </div>
-                <span style="width:120px; text-align:left; font-weight:500;">${m.away}</span>
-                <div style="display:flex; flex-direction:column; align-items:center; min-width:180px;">
-                    <span style="font-size:12px; color:#666;">${resultText}</span>
+                <span style="width:100px; text-align:left; font-weight:500;">${m.away}</span>
+                <div style="display:flex; flex-direction:column; align-items:center; min-width:150px;">
+                    <span style="font-size:11px; color:#666;">${resultText}</span>
                     ${pointsText}
                 </div>
-                ${isElim ? `<div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
-                    <span style="font-size:11px; color:#555;">Прод.:</span>
-                    <input type="number" id="pexH_${m.id}" value="${p.exH ?? ''}" style="width:35px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0">
-                    <span style="font-weight:bold;">:</span>
-                    <input type="number" id="pexA_${m.id}" value="${p.exA ?? ''}" style="width:35px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0">
-                    <span style="font-size:11px; color:#555;">Дузпи:</span>
-                    <input type="number" id="ppenH_${m.id}" value="${p.penH ?? ''}" style="width:35px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0">
-                    <span style="font-weight:bold;">:</span>
-                    <input type="number" id="ppenA_${m.id}" value="${p.penA ?? ''}" style="width:35px; text-align:center; border:1px solid #ccc; border-radius:4px; padding:2px;" min="0">
-                </div>` : ''}
             </div>
         `;
         return htmlContent;
@@ -1162,7 +1238,7 @@ function renderPredictions() {
         </div>
     `;
     
-    document.getElementById('predict-list').innerHTML = `<div style="max-width:70%; margin:0 auto;">${html}</div>`;
+    document.getElementById('predict-list').innerHTML = `<div style="max-width:75%; margin:0 auto;">${html}</div>`;
 }
 
 function savePredictions(){
