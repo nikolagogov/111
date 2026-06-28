@@ -298,27 +298,12 @@ function isGroupStageComplete() {
     return Object.values(grp).every(c=>c===6);
 }
 
-function getBestThirdsRaw() {
-    let groups = calculateGroupStandings(state.results);
-    let thirds = [];
-    for (let g in groups) {
-        let groupMatches = matches.filter(m => m.group === g);
-        let completedCount = groupMatches.filter(m => state.results[m.id] && state.results[m.id].h !== undefined && state.results[m.id].h !== '').length;
-        if (completedCount === 6 && groups[g] && groups[g][2]) {
-            thirds.push({name: groups[g][2].name, group: g, pts: groups[g][2].pts, gd: groups[g][2].gd, gf: groups[g][2].gf});
-        }
-    }
-    thirds.sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-    return thirds;
-}
-
-// ==================== ПОПРАВЕН getBestThirds() ====================
 function getBestThirds() {
     let thirds = getBestThirdsRaw();
     let selected = state.selectedThirds || [];
     
     if (selected.length > 0 && thirds.length === 12) {
-        // Намираме отборите с еднакви показатели
+        // Намираме отборите с еднакви показатели (равни pts, gd, gf)
         let tiedGroups = {};
         for (let t of thirds) {
             let key = `${t.pts}_${t.gd}_${t.gf}`;
@@ -326,15 +311,17 @@ function getBestThirds() {
             tiedGroups[key].push(t);
         }
         
-        let selectedInTie = [];
-        let notSelected = [];
+        let result = [];
+        let usedGroups = new Set();
         
+        // За всяка група с равни показатели
         for (let key in tiedGroups) {
             let group = tiedGroups[key];
             if (group.length > 1) {
-                // Има равни показатели
+                // Има равни показатели - разделяме избрани и неизбрани
                 let selectedFromGroup = [];
                 let notSelectedFromGroup = [];
+                
                 for (let t of group) {
                     if (selected.includes(t.group)) {
                         selectedFromGroup.push(t);
@@ -342,37 +329,44 @@ function getBestThirds() {
                         notSelectedFromGroup.push(t);
                     }
                 }
-                // Избраните остават в реда на избор
+                
+                // Избраните остават в реда на избор, но само ако са маркирани
                 for (let g of selected) {
                     let found = group.find(t => t.group === g);
-                    if (found) selectedInTie.push(found);
+                    if (found && !usedGroups.has(g)) {
+                        result.push(found);
+                        usedGroups.add(g);
+                    }
                 }
-                // Неизбраните остават по критерии
-                notSelectedFromGroup.sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-                notSelected.push(...notSelectedFromGroup);
+                
+                // Неизбраните - подреждаме по азбучен ред (по име)
+                notSelectedFromGroup.sort((a, b) => a.name.localeCompare(b.name));
+                for (let t of notSelectedFromGroup) {
+                    if (!usedGroups.has(t.group)) {
+                        result.push(t);
+                        usedGroups.add(t.group);
+                    }
+                }
             } else {
-                notSelected.push(group[0]);
+                // Няма равни показатели - добавяме директно
+                let t = group[0];
+                if (!usedGroups.has(t.group)) {
+                    result.push(t);
+                    usedGroups.add(t.group);
+                }
             }
         }
         
-        let finalResult = [];
-        let usedGroups = new Set();
-        
-        // Първо избраните отбори (в реда на избор)
-        for (let g of selected) {
-            let found = thirds.find(t => t.group === g);
-            if (found) {
-                finalResult.push(found);
-                usedGroups.add(g);
+        // Добавяме всички останали, които не са добавени (за всеки случай)
+        for (let t of thirds) {
+            if (!usedGroups.has(t.group)) {
+                result.push(t);
+                usedGroups.add(t.group);
             }
         }
         
-        // След това останалите, подредени по критерии
-        let remaining = thirds.filter(t => !usedGroups.has(t.group));
-        remaining.sort((a,b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-        finalResult.push(...remaining);
-        
-        return finalResult.slice(0, 8);
+        // Връщаме първите 8
+        return result.slice(0, 8);
     }
     
     return thirds.slice(0, 8);
