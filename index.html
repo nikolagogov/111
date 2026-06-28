@@ -392,31 +392,28 @@ function getEliminationMatches() {
     let bestThirds = getBestThirds();
     let all = [];
     
-    // ===== ТОЧНИ ДВОЙКИ ОТ СХЕМАТА =====
-    // Всяка двойка: { home: "име на отбор", away: "име на отбор" }
-    // Ако отборът не е на правилното място (1-ви или 2-ри), ще се опитаме да го намерим
+    // ===== ТОЧНИ ДВОЙКИ ОТ СХЕМАТА (С НОМЕРА НА МАЧОВЕТЕ) =====
     const round32Pairs = [
-        { home: "Южна Африка", away: "Канада" },
-        { home: "Бразилия", away: "Япония" },
-        { home: "Германия", away: "Парагвай" },
-        { home: "Нидерландия", away: "Мароко" },
-        { home: "Кот д'Ивоар", away: "Норвегия" },
-        { home: "Франция", away: "Швеция" },
-        { home: "Мексико", away: "Еквадор" },
-        { home: "Англия", away: "ДР Конго" },
-        { home: "Белгия", away: "Сенегал" },
-        { home: "САЩ", away: "Босна и Херц." },
-        { home: "Испания", away: "Австрия" },
-        { home: "Португалия", away: "Хърватия" },
-        { home: "Швейцария", away: "Алжир" },
-        { home: "Австралия", away: "Египет" },
-        { home: "Аржентина", away: "Кабо Верде" },
-        { home: "Колумбия", away: "Гана" }
+        { id: "M73", home: "Германия", away: "Южна Африка" },
+        { id: "M74", home: "Бразилия", away: "Япония" },
+        { id: "M75", home: "Нидерландия", away: "Мароко" },
+        { id: "M76", home: "Франция", away: "Швеция" },
+        { id: "M77", home: "Португалия", away: "Хърватия" },
+        { id: "M78", home: "Испания", away: "Австрия" },
+        { id: "M79", home: "САЩ", away: "Босна и Херц." },
+        { id: "M80", home: "Белгия", away: "Сенегал" },
+        { id: "M81", home: "Англия", away: "ДР Конго" },
+        { id: "M82", home: "Кот д'Ивоар", away: "Норвегия" },
+        { id: "M83", home: "Мексико", away: "Еквадор" },
+        { id: "M84", home: "Колумбия", away: "Гана" },
+        { id: "M85", home: "Аржентина", away: "Кабо Верде" },
+        { id: "M86", home: "Австралия", away: "Египет" },
+        { id: "M87", home: "Швейцария", away: "Алжир" }
+        // M88 липсва - вероятно е срещу трети отбор
     ];
     
-    // Функция за намиране на отбор по име (търси в групите и в третите места)
+    // Функция за намиране на отбор по име
     function findTeam(name) {
-        // Търси в групите
         for (let g in groups) {
             let teams = groups[g];
             for (let i = 0; i < teams.length; i++) {
@@ -425,7 +422,6 @@ function getEliminationMatches() {
                 }
             }
         }
-        // Търси в третите места
         for (let t of bestThirds) {
             if (t.name === name) {
                 return { team: t, group: t.group, position: 2 };
@@ -434,15 +430,16 @@ function getEliminationMatches() {
         return null;
     }
     
-    round32Pairs.forEach((pair, index) => {
+    // Добавяме всички двойки от схемата
+    round32Pairs.forEach((pair) => {
         let homeInfo = findTeam(pair.home);
         let awayInfo = findTeam(pair.away);
         
         if (homeInfo && awayInfo) {
             all.push({
-                id: `R32_${index}`,
-                home: homeInfo.team.name || homeInfo.team,
-                away: awayInfo.team.name || awayInfo.team,
+                id: pair.id,
+                home: homeInfo.team.name,
+                away: awayInfo.team.name,
                 homeGroup: homeInfo.group,
                 awayGroup: awayInfo.group,
                 phase: "R32",
@@ -453,6 +450,57 @@ function getEliminationMatches() {
             console.warn(`Не мога да намеря отбор: ${!homeInfo ? pair.home : pair.away}`);
         }
     });
+    
+    // Добавяме 16-тия мач (M88) - победител от група срещу трети отбор
+    // Според схемата, това вероятно е K1 vs най-добър трети
+    if (all.length < 16) {
+        // Намираме кой победител от група не е използван
+        let usedGroups = new Set();
+        all.forEach(m => {
+            if (m.homeGroup) usedGroups.add(m.homeGroup);
+            if (m.awayGroup) usedGroups.add(m.awayGroup);
+        });
+        
+        let availableWinners = [];
+        for (let g in groups) {
+            if (!usedGroups.has(g) && groups[g] && groups[g][0]) {
+                availableWinners.push({ team: groups[g][0], group: g });
+            }
+        }
+        
+        // Намираме неизползван трети отбор
+        let usedThirds = new Set();
+        all.forEach(m => {
+            if (m.awayGroup && bestThirds.find(t => t.group === m.awayGroup)) {
+                usedThirds.add(m.awayGroup);
+            }
+        });
+        
+        let availableThirds = bestThirds.filter(t => !usedThirds.has(t.group));
+        
+        if (availableWinners.length > 0 && availableThirds.length > 0) {
+            all.push({
+                id: "M88",
+                home: availableWinners[0].team.name,
+                away: availableThirds[0].name,
+                homeGroup: availableWinners[0].group,
+                awayGroup: availableThirds[0].group,
+                phase: "R32",
+                mult: 2,
+                name: "1/16 финали"
+            });
+        }
+    }
+    
+    // ===== СЛЕДВАЩИ КРЪГОВЕ СПОРЕД СХЕМАТА =====
+    // M89: Победител M73 vs Победител M74
+    // M90: Победител M75 vs Победител M76
+    // M91: Победител M77 vs Победител M78
+    // M92: Победител M79 vs Победител M80
+    // M93: Победител M81 vs Победител M82
+    // M94: Победител M83 vs Победител M84
+    // M95: Победител M85 vs Победител M86
+    // M96: Победител M87 vs Победител M88
     
     function getWinner(id){
         let r = state.elimResults[id];
@@ -476,39 +524,117 @@ function getEliminationMatches() {
         return null;
     }
     
-    function nextRound(prev, pref, ph, mult, phaseName){
-        let next = [];
-        for(let i = 0; i < prev.length; i += 2){
-            if(prev[i] && prev[i+1]){
-                let w1 = getWinner(prev[i].id);
-                let w2 = getWinner(prev[i+1].id);
-                next.push({
-                    id: `${pref}_${i/2}`,
-                    home: w1 || `Победител ${prev[i].home} vs ${prev[i].away}`,
-                    away: w2 || `Победител ${prev[i+1].home} vs ${prev[i+1].away}`,
-                    phase: ph,
-                    mult: mult,
-                    name: phaseName
-                });
-            }
-        }
-        return next;
+    function createMatch(id, home, away, phase, mult, name) {
+        return { id, home, away, phase, mult, name };
     }
     
-    let r32 = all.filter(m => m.phase === "R32");
-    let r16 = nextRound(r32, "R16", "R16", 3, "1/8 финали");
-    let qf = nextRound(r16, "QF", "QF", 4, "1/4 финали");
-    let sf = nextRound(qf, "SF", "SF", 5, "Полуфинали");
+    // 1/8 финали (M89-M96)
+    let r16Pairs = [
+        { id: "M89", m1: "M73", m2: "M74" },
+        { id: "M90", m1: "M75", m2: "M76" },
+        { id: "M91", m1: "M77", m2: "M78" },
+        { id: "M92", m1: "M79", m2: "M80" },
+        { id: "M93", m1: "M81", m2: "M82" },
+        { id: "M94", m1: "M83", m2: "M84" },
+        { id: "M95", m1: "M85", m2: "M86" },
+        { id: "M96", m1: "M87", m2: "M88" }
+    ];
     
+    let r16 = r16Pairs.map(p => {
+        let m1 = all.find(m => m.id === p.m1);
+        let m2 = all.find(m => m.id === p.m2);
+        let w1 = m1 ? getWinner(m1.id) : null;
+        let w2 = m2 ? getWinner(m2.id) : null;
+        return createMatch(
+            p.id,
+            w1 || `Победител ${p.m1}`,
+            w2 || `Победител ${p.m2}`,
+            "R16", 3, "1/8 финали"
+        );
+    });
+    
+    // 1/4 финали (M97-M100)
+    let qfPairs = [
+        { id: "M97", m1: "M89", m2: "M90" },
+        { id: "M98", m1: "M91", m2: "M92" },
+        { id: "M99", m1: "M93", m2: "M94" },
+        { id: "M100", m1: "M95", m2: "M96" }
+    ];
+    
+    let qf = qfPairs.map(p => {
+        let m1 = r16.find(m => m.id === p.m1);
+        let m2 = r16.find(m => m.id === p.m2);
+        let w1 = m1 ? getWinner(m1.id) : null;
+        let w2 = m2 ? getWinner(m2.id) : null;
+        return createMatch(
+            p.id,
+            w1 || `Победител ${p.m1}`,
+            w2 || `Победител ${p.m2}`,
+            "QF", 4, "1/4 финали"
+        );
+    });
+    
+    // Полуфинали (M101-M102)
+    let sfPairs = [
+        { id: "M101", m1: "M97", m2: "M98" },
+        { id: "M102", m1: "M99", m2: "M100" }
+    ];
+    
+    let sf = sfPairs.map(p => {
+        let m1 = qf.find(m => m.id === p.m1);
+        let m2 = qf.find(m => m.id === p.m2);
+        let w1 = m1 ? getWinner(m1.id) : null;
+        let w2 = m2 ? getWinner(m2.id) : null;
+        return createMatch(
+            p.id,
+            w1 || `Победител ${p.m1}`,
+            w2 || `Победител ${p.m2}`,
+            "SF", 5, "Полуфинали"
+        );
+    });
+    
+    // Мач за 3-то място (M103)
     let thirdPlaceMatch = [];
-    if(sf.length >= 2) {
-        let loser1 = getWinner(sf[0].id) ? (getWinner(sf[0].id) === sf[0].home ? sf[0].away : sf[0].home) : `Загубил ${sf[0].home} vs ${sf[0].away}`;
-        let loser2 = getWinner(sf[1].id) ? (getWinner(sf[1].id) === sf[1].home ? sf[1].away : sf[1].home) : `Загубил ${sf[1].home} vs ${sf[1].away}`;
-        thirdPlaceMatch.push({ id: "TP", home: loser1, away: loser2, phase: "TP", mult: 5, name: "Мач за 3-то място" });
+    if (sf.length >= 2) {
+        let s1 = sf[0];
+        let s2 = sf[1];
+        let loser1 = getWinner(s1.id) ? (getWinner(s1.id) === s1.home ? s1.away : s1.home) : `Загубил ${s1.home} vs ${s1.away}`;
+        let loser2 = getWinner(s2.id) ? (getWinner(s2.id) === s2.home ? s2.away : s2.home) : `Загубил ${s2.home} vs ${s2.away}`;
+        thirdPlaceMatch.push(createMatch("M103", loser1, loser2, "TP", 5, "Мач за 3-то място"));
     }
-    let final = nextRound(sf, "F", "F", 6, "Финал");
     
-    return [...r32, ...r16, ...qf, ...sf, ...thirdPlaceMatch, ...final];
+    // Финал (M104)
+    let final = [];
+    if (sf.length >= 2) {
+        let s1 = sf[0];
+        let s2 = sf[1];
+        let w1 = getWinner(s1.id) || `Победител ${s1.home} vs ${s1.away}`;
+        let w2 = getWinner(s2.id) || `Победител ${s2.home} vs ${s2.away}`;
+        final.push(createMatch("M104", w1, w2, "F", 6, "Финал"));
+    }
+    
+    // Комбинираме всички мачове
+    let allMatches = [...all, ...r16, ...qf, ...sf, ...thirdPlaceMatch, ...final];
+    
+    // Сортираме мачовете според схемата
+    const matchOrder = [
+        "M73", "M74", "M75", "M76", "M77", "M78", "M79", "M80",
+        "M81", "M82", "M83", "M84", "M85", "M86", "M87", "M88",
+        "M89", "M90", "M91", "M92", "M93", "M94", "M95", "M96",
+        "M97", "M98", "M99", "M100",
+        "M101", "M102",
+        "M103", "M104"
+    ];
+    
+    allMatches.sort((a, b) => {
+        let aIndex = matchOrder.indexOf(a.id);
+        let bIndex = matchOrder.indexOf(b.id);
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+    });
+    
+    return allMatches;
 }
 
 // ==================== ОСТАНАЛИТЕ ФУНКЦИИ ====================
