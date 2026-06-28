@@ -392,27 +392,26 @@ function getEliminationMatches() {
     let bestThirds = getBestThirds();
     let all = [];
     
-    // ===== ТОЧНИ ДВОЙКИ ОТ СХЕМАТА (С НОМЕРА НА МАЧОВЕТЕ) =====
+    // ===== ТОЧНИ ДВОЙКИ ОТ СХЕМАТА =====
     const round32Pairs = [
-        { id: "M73", home: "Германия", away: "Южна Африка" },
-        { id: "M74", home: "Бразилия", away: "Япония" },
-        { id: "M75", home: "Нидерландия", away: "Мароко" },
-        { id: "M76", home: "Франция", away: "Швеция" },
+        { id: "M73", home: "Германия", away: "Парагвай" },
+        { id: "M74", home: "Франция", away: "Швеция" },
+        { id: "M75", home: "Южна Африка", away: "Канада" },
+        { id: "M76", home: "Нидерландия", away: "Мароко" },
         { id: "M77", home: "Португалия", away: "Хърватия" },
         { id: "M78", home: "Испания", away: "Австрия" },
         { id: "M79", home: "САЩ", away: "Босна и Херц." },
         { id: "M80", home: "Белгия", away: "Сенегал" },
-        { id: "M81", home: "Англия", away: "ДР Конго" },
+        { id: "M81", home: "Бразилия", away: "Япония" },
         { id: "M82", home: "Кот д'Ивоар", away: "Норвегия" },
         { id: "M83", home: "Мексико", away: "Еквадор" },
-        { id: "M84", home: "Колумбия", away: "Гана" },
+        { id: "M84", home: "Англия", away: "ДР Конго" },
         { id: "M85", home: "Аржентина", away: "Кабо Верде" },
         { id: "M86", home: "Австралия", away: "Египет" },
-        { id: "M87", home: "Швейцария", away: "Алжир" }
-        // M88 липсва - вероятно е срещу трети отбор
+        { id: "M87", home: "Швейцария", away: "Алжир" },
+        { id: "M88", home: "Колумбия", away: "Гана" }
     ];
     
-    // Функция за намиране на отбор по име
     function findTeam(name) {
         for (let g in groups) {
             let teams = groups[g];
@@ -430,7 +429,6 @@ function getEliminationMatches() {
         return null;
     }
     
-    // Добавяме всички двойки от схемата
     round32Pairs.forEach((pair) => {
         let homeInfo = findTeam(pair.home);
         let awayInfo = findTeam(pair.away);
@@ -450,57 +448,6 @@ function getEliminationMatches() {
             console.warn(`Не мога да намеря отбор: ${!homeInfo ? pair.home : pair.away}`);
         }
     });
-    
-    // Добавяме 16-тия мач (M88) - победител от група срещу трети отбор
-    // Според схемата, това вероятно е K1 vs най-добър трети
-    if (all.length < 16) {
-        // Намираме кой победител от група не е използван
-        let usedGroups = new Set();
-        all.forEach(m => {
-            if (m.homeGroup) usedGroups.add(m.homeGroup);
-            if (m.awayGroup) usedGroups.add(m.awayGroup);
-        });
-        
-        let availableWinners = [];
-        for (let g in groups) {
-            if (!usedGroups.has(g) && groups[g] && groups[g][0]) {
-                availableWinners.push({ team: groups[g][0], group: g });
-            }
-        }
-        
-        // Намираме неизползван трети отбор
-        let usedThirds = new Set();
-        all.forEach(m => {
-            if (m.awayGroup && bestThirds.find(t => t.group === m.awayGroup)) {
-                usedThirds.add(m.awayGroup);
-            }
-        });
-        
-        let availableThirds = bestThirds.filter(t => !usedThirds.has(t.group));
-        
-        if (availableWinners.length > 0 && availableThirds.length > 0) {
-            all.push({
-                id: "M88",
-                home: availableWinners[0].team.name,
-                away: availableThirds[0].name,
-                homeGroup: availableWinners[0].group,
-                awayGroup: availableThirds[0].group,
-                phase: "R32",
-                mult: 2,
-                name: "1/16 финали"
-            });
-        }
-    }
-    
-    // ===== СЛЕДВАЩИ КРЪГОВЕ СПОРЕД СХЕМАТА =====
-    // M89: Победител M73 vs Победител M74
-    // M90: Победител M75 vs Победител M76
-    // M91: Победител M77 vs Победител M78
-    // M92: Победител M79 vs Победител M80
-    // M93: Победител M81 vs Победител M82
-    // M94: Победител M83 vs Победител M84
-    // M95: Победител M85 vs Победител M86
-    // M96: Победител M87 vs Победител M88
     
     function getWinner(id){
         let r = state.elimResults[id];
@@ -528,8 +475,9 @@ function getEliminationMatches() {
         return { id, home, away, phase, mult, name };
     }
     
+    // ===== СЛЕДВАЩИ КРЪГОВЕ =====
     // 1/8 финали (M89-M96)
-    let r16Pairs = [
+    const r16Pairs = [
         { id: "M89", m1: "M73", m2: "M74" },
         { id: "M90", m1: "M75", m2: "M76" },
         { id: "M91", m1: "M77", m2: "M78" },
@@ -554,7 +502,7 @@ function getEliminationMatches() {
     });
     
     // 1/4 финали (M97-M100)
-    let qfPairs = [
+    const qfPairs = [
         { id: "M97", m1: "M89", m2: "M90" },
         { id: "M98", m1: "M91", m2: "M92" },
         { id: "M99", m1: "M93", m2: "M94" },
@@ -575,7 +523,7 @@ function getEliminationMatches() {
     });
     
     // Полуфинали (M101-M102)
-    let sfPairs = [
+    const sfPairs = [
         { id: "M101", m1: "M97", m2: "M98" },
         { id: "M102", m1: "M99", m2: "M100" }
     ];
@@ -613,10 +561,9 @@ function getEliminationMatches() {
         final.push(createMatch("M104", w1, w2, "F", 6, "Финал"));
     }
     
-    // Комбинираме всички мачове
     let allMatches = [...all, ...r16, ...qf, ...sf, ...thirdPlaceMatch, ...final];
     
-    // Сортираме мачовете според схемата
+    // Сортираме по ID на мача
     const matchOrder = [
         "M73", "M74", "M75", "M76", "M77", "M78", "M79", "M80",
         "M81", "M82", "M83", "M84", "M85", "M86", "M87", "M88",
