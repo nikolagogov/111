@@ -634,30 +634,48 @@ function calcPoints(pred, real, mult, isElim) {
     if (!pred || !real) return 0;
     let pts = 0;
     
-    // 1. Редовно време (винаги)
+    // 1. Редовно време (винаги се брои)
     let ph = parseInt(pred.h), pa = parseInt(pred.a);
     let rh = parseInt(real.h), ra = parseInt(real.a);
     if (!isNaN(ph) && !isNaN(pa) && !isNaN(rh) && !isNaN(ra)) {
         pts += calculateMatchPoints(ph, pa, rh, ra);
     }
     
-    // 2. Продължения (САМО ако има попълнени И в прогнозата, И в реалния резултат)
-    if (isElim && pred.exH !== undefined && pred.exH !== '' && pred.exA !== undefined && pred.exA !== '' &&
-        real.exH !== undefined && real.exH !== '' && real.exA !== undefined && real.exA !== '') {
-        let peH = parseInt(pred.exH), peA = parseInt(pred.exA);
-        let reH = parseInt(real.exH), reA = parseInt(real.exA);
-        if (!isNaN(peH) && !isNaN(peA) && !isNaN(reH) && !isNaN(reA)) {
-            pts += calculateMatchPoints(peH, peA, reH, reA);
+    // 2. Продължения - САМО ако редовното време е равенство И в прогнозата, И в реалния резултат
+    if (isElim && ph === pa && rh === ra) {
+        if (pred.exH !== undefined && pred.exH !== '' && pred.exA !== undefined && pred.exA !== '' &&
+            real.exH !== undefined && real.exH !== '' && real.exA !== undefined && real.exA !== '') {
+            let peH = parseInt(pred.exH), peA = parseInt(pred.exA);
+            let reH = parseInt(real.exH), reA = parseInt(real.exA);
+            if (!isNaN(peH) && !isNaN(peA) && !isNaN(reH) && !isNaN(reA)) {
+                pts += calculateMatchPoints(peH, peA, reH, reA);
+            }
         }
     }
     
-    // 3. Дузпи (САМО ако има попълнени И в прогнозата, И в реалния резултат)
-    if (isElim && pred.penH !== undefined && pred.penH !== '' && pred.penA !== undefined && pred.penA !== '' &&
-        real.penH !== undefined && real.penH !== '' && real.penA !== undefined && real.penA !== '') {
-        let ppH = parseInt(pred.penH), ppA = parseInt(pred.penA);
-        let rpH = parseInt(real.penH), rpA = parseInt(real.penA);
-        if (!isNaN(ppH) && !isNaN(ppA) && !isNaN(rpH) && !isNaN(rpA)) {
-            pts += calculateMatchPoints(ppH, ppA, rpH, rpA);
+    // 3. Дузпи - САМО ако редовното време И продълженията са равенство
+    if (isElim && ph === pa && rh === ra) {
+        // Проверка дали има попълнени продължения и дали са равни
+        let hasExtra = (pred.exH !== undefined && pred.exH !== '' && pred.exA !== undefined && pred.exA !== '' &&
+                       real.exH !== undefined && real.exH !== '' && real.exA !== undefined && real.exA !== '');
+        let extraEqual = false;
+        if (hasExtra) {
+            let peH = parseInt(pred.exH), peA = parseInt(pred.exA);
+            let reH = parseInt(real.exH), reA = parseInt(real.exA);
+            if (!isNaN(peH) && !isNaN(peA) && !isNaN(reH) && !isNaN(reA)) {
+                extraEqual = (peH === peA && reH === reA);
+            }
+        }
+        
+        if (extraEqual) {
+            if (pred.penH !== undefined && pred.penH !== '' && pred.penA !== undefined && pred.penA !== '' &&
+                real.penH !== undefined && real.penH !== '' && real.penA !== undefined && real.penA !== '') {
+                let ppH = parseInt(pred.penH), ppA = parseInt(pred.penA);
+                let rpH = parseInt(real.penH), rpA = parseInt(real.penA);
+                if (!isNaN(ppH) && !isNaN(ppA) && !isNaN(rpH) && !isNaN(rpA)) {
+                    pts += calculateMatchPoints(ppH, ppA, rpH, rpA);
+                }
+            }
         }
     }
     
