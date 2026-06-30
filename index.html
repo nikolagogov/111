@@ -634,16 +634,16 @@ function calcPoints(pred, real, mult, isElim) {
     if (!pred || !real) return 0;
     let pts = 0;
     
-    // 1. Точки за редовно време (винаги се брои)
+    // 1. Редовно време (винаги)
     let ph = parseInt(pred.h), pa = parseInt(pred.a);
     let rh = parseInt(real.h), ra = parseInt(real.a);
     if (!isNaN(ph) && !isNaN(pa) && !isNaN(rh) && !isNaN(ra)) {
         pts += calculateMatchPoints(ph, pa, rh, ra);
     }
     
-    // 2. Точки за продължения (само ако има попълнени и в двете)
-    if (isElim && pred.exH !== undefined && pred.exA !== undefined && 
-        real.exH !== undefined && real.exA !== undefined) {
+    // 2. Продължения (САМО ако има попълнени И в прогнозата, И в реалния резултат)
+    if (isElim && pred.exH !== undefined && pred.exH !== '' && pred.exA !== undefined && pred.exA !== '' &&
+        real.exH !== undefined && real.exH !== '' && real.exA !== undefined && real.exA !== '') {
         let peH = parseInt(pred.exH), peA = parseInt(pred.exA);
         let reH = parseInt(real.exH), reA = parseInt(real.exA);
         if (!isNaN(peH) && !isNaN(peA) && !isNaN(reH) && !isNaN(reA)) {
@@ -651,15 +651,18 @@ function calcPoints(pred, real, mult, isElim) {
         }
     }
     
-    // 3. Точки за дузпи (само ако има попълнени и в двете)
-    if (isElim && pred.penH !== undefined && pred.penA !== undefined && 
-        real.penH !== undefined && real.penA !== undefined) {
+    // 3. Дузпи (САМО ако има попълнени И в прогнозата, И в реалния резултат)
+    if (isElim && pred.penH !== undefined && pred.penH !== '' && pred.penA !== undefined && pred.penA !== '' &&
+        real.penH !== undefined && real.penH !== '' && real.penA !== undefined && real.penA !== '') {
         let ppH = parseInt(pred.penH), ppA = parseInt(pred.penA);
         let rpH = parseInt(real.penH), rpA = parseInt(real.penA);
         if (!isNaN(ppH) && !isNaN(ppA) && !isNaN(rpH) && !isNaN(rpA)) {
             pts += calculateMatchPoints(ppH, ppA, rpH, rpA);
         }
     }
+    
+    return pts * mult;
+}
     
     return pts * mult;
 }
