@@ -471,26 +471,27 @@ function getEliminationMatches() {
     });
     
     function getWinner(id){
-        let r = state.elimResults[id];
-        if (r && r.h !== '' && r.a !== '') {
-            let m = all.find(x => x.id === id);
-            if (m) {
-                if (r.h > r.a) return m.home;
-                if (r.a > r.h) return m.away;
-                if (r.exH !== undefined && r.exH !== '' && r.exA !== undefined && r.exA !== '') {
-                    let exH = parseInt(r.exH), exA = parseInt(r.exA);
-                    if (exH > exA) return m.home;
-                    if (exA > exH) return m.away;
-                }
-                if (r.penH !== undefined && r.penH !== '' && r.penA !== undefined && r.penA !== '') {
-                    let penH = parseInt(r.penH), penA = parseInt(r.penA);
-                    if (penH > penA) return m.home;
-                    if (penA > penH) return m.away;
-                }
+    let r = state.elimResults[id];
+    if (r && r.h !== '' && r.a !== '') {
+        let m = all.find(x => x.id === id);
+        if (m) {
+            let rh = parseInt(r.h), ra = parseInt(r.a);
+            if (rh > ra) return m.home;
+            if (ra > rh) return m.away;
+            if (r.exH !== undefined && r.exH !== '') {
+                let exH = parseInt(r.exH), exA = parseInt(r.exA);
+                if (exH > exA) return m.home;
+                if (exA > exH) return m.away;
+            }
+            if (r.penH !== undefined && r.penH !== '') {
+                let penH = parseInt(r.penH), penA = parseInt(r.penA);
+                if (penH > penA) return m.home;
+                if (penA > penH) return m.away;
             }
         }
-        return null;
     }
+    return null;
+}
     
     function createMatch(id, home, away, phase, mult, name) {
         return { id, home, away, phase, mult, name };
